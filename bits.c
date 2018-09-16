@@ -171,7 +171,9 @@ NOTES:
  *   Rating: 1
  */
 int bitAnd(int x, int y) {
-  return 2;
+ /*use the de morgan's law for logic with the fact (x and y) = ~(x nand y)*/
+ int nand = ~x | ~y;
+ return ~nand;
 }
 /* 
  * getByte - Extract byte n from word x
@@ -182,7 +184,11 @@ int bitAnd(int x, int y) {
  *   Rating: 2
  */
 int getByte(int x, int n) {
-  return 2;
+ /*first bring target to LSB position and then truncate it other than LSB */
+ int lsB = 0xFF;
+ int shift_amount= n<<3;	// this amounts to n*8 where 8 = (# of bit in a byte)
+ int shifted_x = x>>shift_amount;
+ return shifted_x & lsB;
 }
 /* 
  * logicalShift - shift x to the right by n, using a logical shift
@@ -193,7 +199,15 @@ int getByte(int x, int n) {
  *   Rating: 3 
  */
 int logicalShift(int x, int n) {
-  return 2;
+ /*Pick up the most significant bit(msb) of x and then add it to x>>n(arithmatic shift) in a proper digit position
+   Here, note that 1+~n = -n 
+ */
+ int arith_shift = x >> n;
+ int msbit = (x>>31) & 0x01;			// make it into the form 0x00....0b where b= 0 or 1
+ int sol_dummy = msbit << (32 + (1+~n));	
+ sol_dummy = (sol_dummy>>1)<<1;			// exception handling for n=0 so that we make sol_dummy = 0x00; if n!=0, this doesn't matter.
+ return arith_shift + sol_dummy;		// this eliminates augmented msb by adding the same bit at a proper position where augmentation begins
+
 }
 /*
  * bitCount - returns count of number of 1's in word
@@ -203,8 +217,32 @@ int logicalShift(int x, int n) {
  *   Rating: 4
  */
 int bitCount(int x) {
-  return 2;
+/*use masks(=dum) step by step*/
+ int quad_01=0x55;			// 0x01010101
+ int di_doub_1=0x33;			// 0x00110011
+ int quad_1 = 0x0f;			// 0x00001111
+ int octa_1 = 0xff;			// 0x11111111
+
+ /*dums are just 32bit numbers where the numbers we defined above are uniformly distributed respectively*/
+ 
+ int dum1_half = (quad_01<<8) +quad_01;
+ int dum1 = (dum1_half << 16) + dum1_half;
+ int dum2_half = (di_doub_1 << 8 ) +di_doub_1;
+ int dum2 = (dum2_half <<16) + dum2_half;
+ int dum3_half = (quad_1 <<8) + quad_1;
+ int dum3 = (dum3_half <<16) +dum3_half;
+ int dum4 = (octa_1 <<16) +octa_1;
+ int dum5 = (octa_1<<8) + octa_1;
+
+ /*dums function as masks*/
+
+ int unitby_2 = ((x>>1)&dum1) + (x & dum1);
+ int unitby_4 = ((unitby_2>>2) & dum2)  + (unitby_2 & dum2);
+ int unitby_8 = ((unitby_4>>4) & dum3) + (unitby_4 & dum3);
+ int unitby_16 = ((unitby_8 >>8) & dum4) + (unitby_8 & dum4);  
+ return ((unitby_16 >> 16) & dum5) + (unitby_16 &dum5) ;
 }
+
 /* 
  * bang - Compute !x without using !
  *   Examples: bang(3) = 0, bang(0) = 1
@@ -213,8 +251,15 @@ int bitCount(int x) {
  *   Rating: 4 
  */
 int bang(int x) {
-  return 2;
+ /*Observe that at least one of the most significant bit (msbit) of x and -x would be 1 unless x==0 
+   due to the sign issue : 0 == 0x00000000 == -0;
+ */
+ int neg_x = 1+~x;
+ int msbit_x = (x>>31)&0x01;	int msbit_neg_x = (neg_x >>31)&0x01;
+ int ethr_0_or_1 = msbit_x | msbit_neg_x;		// this would be either 0x01(if x!=0) or 0x00(1f x==0)
+ return (ethr_0_or_1 +1) & 0x01; 			// to make it either 0x00(if x!=0) or 0x01(if x==0);
 }
+
 /* 
  * tmin - return minimum two's complement integer 
  *   Legal ops: ! ~ & ^ | + << >>
@@ -222,7 +267,8 @@ int bang(int x) {
  *   Rating: 1
  */
 int tmin(void) {
-  return 2;
+ int ten_mill = 0x80;		// 0x10000000
+ return ten_mill <<24;
 }
 /* 
  * fitsBits - return 1 if x can be represented as an 
@@ -234,7 +280,15 @@ int tmin(void) {
  *   Rating: 2
  */
 int fitsBits(int x, int n) {
-  return 2;
+ /*Note that this issue depends on the bits other than the last (n-1) bits; call it 'others' 
+   If 0 and 1 are mixed in others, x would be fail to fit. 
+ */
+ int n_minus_1 = n + (~1+1);
+ int others=x >> n_minus_1;
+ int lsbit_of_others= others & 0x01;
+ // negative case handling : if others =111...11, x must be fitted (consider x=-4, n=3); so we should evade this;
+ int zero_or_not = others + lsbit_of_others;		// => either  0x00(fit) or not(fail).		
+ return !(zero_or_not);
 }
 /* 
  * divpwr2 - Compute x/(2^n), for 0 <= n <= 30
@@ -245,7 +299,16 @@ int fitsBits(int x, int n) {
  *   Rating: 2
  */
 int divpwr2(int x, int n) {
-    return 2;
+ /**/
+ int ten_mill = 0x80;
+ int T_min = ten_mill << 24;
+ int msbit_in_place = x & T_min;
+ int msbit = (msbit_in_place >>31) & 0x01;
+ int all_one = ~0x00;
+ int n_lsbits = x & ~(all_one <<n);
+ int divpwr_shift = x>>n;
+ int aux_factor = msbit & !!n_lsbits;
+ return divpwr_shift + aux_factor;
 }
 /* 
  * negate - return -x 
@@ -255,7 +318,8 @@ int divpwr2(int x, int n) {
  *   Rating: 2
  */
 int negate(int x) {
-  return 2;
+ /*This is classic issue considering x + ~x = 1*/ 
+  return 1+ (~x);
 }
 /* 
  * isPositive - return 1 if x > 0, return 0 otherwise 
@@ -265,7 +329,12 @@ int negate(int x) {
  *   Rating: 3
  */
 int isPositive(int x) {
-  return 2;
+ /*Just follow the comments*/
+ int ten_mill = 0x80;
+ int T_min = ten_mill<<24;				// 0x80000000
+ int ethr_0_or_neg_1 = (x & T_min) >>31; 		// if x>=0, this would be 0; if x<0, this would be -1
+ int zero_trap = !(x | 0x00);				// exception handling : if x==0, this would be 1; otherwise, this would be 0;
+ return !(ethr_0_or_neg_1 + zero_trap);			// the inner sum would be either zero(if x>0) or not(if x<=0)	
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
