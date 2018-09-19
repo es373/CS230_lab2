@@ -2,7 +2,7 @@
  * CS:APP Data Lab 
  * 
  * <Please put your name and userid here>
- * 
+ *  Lee Woojoo 	cs20170478
  * bits.c - Source file with your solutions to the Lab.
  *          This is the file you will hand in to your instructor.
  *
@@ -72,8 +72,7 @@ INTEGER CODING RULES:
 EXAMPLES OF ACCEPTABLE CODING STYLE:
   /*
    * pow2plus1 - returns 2^x + 1, where 0 <= x <= 31
-   */
-  int pow2plus1(int x) {
+   *int pow2plus1(int x) {
      /* exploit ability of shifts to compute powers of 2 */
      return (1 << x) + 1;
   }
@@ -205,6 +204,7 @@ int logicalShift(int x, int n) {
  int arith_shift = x >> n;
  int msbit = (x>>31) & 0x01;			// make it into the form 0x00....0b where b= 0 or 1
  int sol_dummy = msbit << (32 + (1+~n));	
+
  sol_dummy = (sol_dummy>>1)<<1;			// exception handling for n=0 so that we make sol_dummy = 0x00; if n!=0, this doesn't matter.
  return arith_shift + sol_dummy;		// this eliminates augmented msb by adding the same bit at a proper position where augmentation begins
 
@@ -217,7 +217,7 @@ int logicalShift(int x, int n) {
  *   Rating: 4
  */
 int bitCount(int x) {
-/*use masks(=dum) step by step*/
+/*use masks(=dum) step by step to gather all 1s in given x*/
  int quad_01=0x55;			// 0x01010101
  int di_doub_1=0x33;			// 0x00110011
  int quad_1 = 0x0f;			// 0x00001111
@@ -236,11 +236,11 @@ int bitCount(int x) {
 
  /*dums function as masks*/
 
- int unitby_2 = ((x>>1)&dum1) + (x & dum1);
+ int unitby_2 = ((x>>1)&dum1) + (x & dum1);			// implies how many 1s are in each unit;
  int unitby_4 = ((unitby_2>>2) & dum2)  + (unitby_2 & dum2);
  int unitby_8 = ((unitby_4>>4) & dum3) + (unitby_4 & dum3);
  int unitby_16 = ((unitby_8 >>8) & dum4) + (unitby_8 & dum4);  
- return ((unitby_16 >> 16) & dum5) + (unitby_16 &dum5) ;
+ return ((unitby_16 >> 16) & dum5) + (unitby_16 &dum5) ;	// ==unitby_32 (total)
 }
 
 /* 
@@ -267,6 +267,7 @@ int bang(int x) {
  *   Rating: 1
  */
 int tmin(void) {
+/*The unique 1 is on the leftmost(32nd) side*/
  int ten_mill = 0x80;		// 0x10000000
  return ten_mill <<24;
 }
@@ -280,14 +281,15 @@ int tmin(void) {
  *   Rating: 2
  */
 int fitsBits(int x, int n) {
- /*Note that this issue depends on the bits other than the last (n-1) bits; call it 'others' 
-   If 0 and 1 are mixed in others, x would be fail to fit. 
+ /*Note that by the 2's complement int mechanism, this issue depends on the bits other than the last (n-1) bits; call it 'others' 
+   If 0 and 1 are mixed in 'others', x would be fail to fit. 
  */
  int n_minus_1 = n + (~1+1);
  int others=x >> n_minus_1;
  int lsbit_of_others= others & 0x01;
  // negative case handling : if others =111...11, x must be fitted (consider x=-4, n=3); so we should evade this;
  int zero_or_not = others + lsbit_of_others;		// => either  0x00(fit) or not(fail).		
+
  return !(zero_or_not);
 }
 /* 
@@ -299,16 +301,20 @@ int fitsBits(int x, int n) {
  *   Rating: 2
  */
 int divpwr2(int x, int n) {
- /**/
+ /*The point is that the right shift(>>) brings rounding toward -infinity, so we  have to concern x<0 case
+   Also, since rounding doesn't occur when 2^n(2 power n) divides x, we just need to concern the last n-bit of x 
+ */
  int ten_mill = 0x80;
- int T_min = ten_mill << 24;
+ int T_min = ten_mill << 24;			//0x80000000
  int msbit_in_place = x & T_min;
  int msbit = (msbit_in_place >>31) & 0x01;
+
  int all_one = ~0x00;
- int n_lsbits = x & ~(all_one <<n);
+ int n_lsbits = x & ~(all_one <<n);		//the last n-bits of x; if this doesn't equal to 0, x must not be divided by 2^n
+
  int divpwr_shift = x>>n;
- int aux_factor = msbit & !!n_lsbits;
- return divpwr_shift + aux_factor;
+ int aux_factor = msbit & !!n_lsbits;		//if x<0(i.e. msbit==1) and rounding occurs(i.e. n_lsbits !=0), then aux_factor==1;
+ return divpwr_shift + aux_factor;		//This prevents round toward -inf by simply adding 1; Else, aux_factor doesn't affect   
 }
 /* 
  * negate - return -x 
@@ -318,7 +324,7 @@ int divpwr2(int x, int n) {
  *   Rating: 2
  */
 int negate(int x) {
- /*This is classic issue considering x + ~x = 1*/ 
+ /*This is classic issue considering x + ~x = -1 = 0xffffffff*/ 
   return 1+ (~x);
 }
 /* 
@@ -330,11 +336,10 @@ int negate(int x) {
  */
 int isPositive(int x) {
  /*Just follow the comments*/
- int ten_mill = 0x80;
- int T_min = ten_mill<<24;				// 0x80000000
+ int T_min = 0x80<<24;					// 0x80000000
  int ethr_0_or_neg_1 = (x & T_min) >>31; 		// if x>=0, this would be 0; if x<0, this would be -1
  int zero_trap = !(x | 0x00);				// exception handling : if x==0, this would be 1; otherwise, this would be 0;
- return !(ethr_0_or_neg_1 + zero_trap);			// the inner sum would be either zero(if x>0) or not(if x<=0)	
+ return !(ethr_0_or_neg_1 + zero_trap);			// the inner sum would be either zero(if x>0) or nonzero(if x<=0)	
 }
 /* 
  * isLessOrEqual - if x <= y  then return 1, else return 0 
@@ -344,7 +349,20 @@ int isPositive(int x) {
  *   Rating: 3
  */
 int isLessOrEqual(int x, int y) {
-  return 2;
+ /* We can determine this by considering the following three cases
+  1) x<0 and y>=0
+  2) x-y <0 when x and y have the same signs (then unnecessary over(under)flow doesn't occur)
+  3) x=y
+*/
+ int T_min = 0x80 <<24;
+ int x_minus_y = x + (1 + ~y);
+
+ int sign_of_x = ((x & T_min)>>31)&0x01;			// if x>=0, this would be 0; otherwise, 1
+ int sign_of_y = ((y & T_min)>>31)&0x01;
+ int sign_of_x_minus_y = ((x_minus_y & T_min)>>31)&0x01;	
+ int same_signs = !(sign_of_x ^ sign_of_y);			// if sign(x)=sign(y), then this would be 1; otherwise, 0; 
+ // we want 1) or 2) or 3) to hold. i.e. to return 1 (resp). 
+ return ((sign_of_x)& !(sign_of_y)) | (sign_of_x_minus_y & same_signs) | !(x_minus_y);			
 }
 /*
  * ilog2 - return floor(log base 2 of x), where x > 0
@@ -354,8 +372,47 @@ int isLessOrEqual(int x, int y) {
  *   Rating: 4
  */
 int ilog2(int x) {
-  return 2;
+ /*The point is to get the greatest nonzero bit of x and its position (i.e. the exact num)
+  To do this,  we shall copy the bit from its original position to the least significant bit position
+  so that the result would be partitioned into fore 0s and rear 1s;
+  Then we can estimate the original position of 1 (which we desire) by counting the number of rear 1s except leading 1;   
+*/ 
+ // Since we're going to count the number of 1s, we take analogous process as in bitCount(x) above
+ int T_min=0x80<<24;
+ int quad_01=0x55;
+ int di_doub_1=0x33;
+ int quad_1=0x0f;
+ int octa_1=0xff;
+
+ int hemidum1=(quad_01 <<8) +quad_01;
+ int dum1 = (hemidum1<<16)+hemidum1;
+ int hemidum2=(di_doub_1<<8)+di_doub_1;
+ int dum2 =(hemidum2<<16)+hemidum2;
+ int hemidum3=(quad_1<<8)+quad_1;
+ int dum3=(hemidum3<<16)+hemidum3;
+ int dum4=(octa_1<<16)+octa_1;
+ int dum5=(octa_1<<8)+octa_1;
+
+ int first_copy = x |(x>>1);
+ int second_copy = first_copy | (first_copy>>2);
+ int third_copy = second_copy | (second_copy>>4);
+ int fourth_copy = third_copy | (third_copy >>8);
+ int final_copy = fourth_copy | (fourth_copy>>16);		//this would be enough (w/o repitition) since we have at most 32-bits.
+ 
+ int only_greatest_nonzero=((final_copy+1)>>1);
+ int pos_ogn = only_greatest_nonzero & (~T_min);		// exception handling: x=T_Min ;since x is never negative, we can always drop sign_bit;
+ int consisting_ones=pos_ogn + (1+~1);				// == only_greatest_nonzero -1; we omitted the greatest nonzero bit from final_copy.
+ 
+ // (Observe that ilog2(0x80)==ilog2(2^7)==7 and 0x80 brings 0xff (# of 1s : 8) after copying; so we should omit the leading 1)  
+ 
+ int unit_2=((consisting_ones>>1)&dum1) + (consisting_ones&dum1);
+ int unit_4=((unit_2>>2)&dum2)+(unit_2&dum2);
+ int unit_8=((unit_4>>4)&dum3)+(unit_4&dum3);
+ int unit_16=((unit_8>>8)&dum4)+(unit_8&dum4);
+ return ((unit_16>>16)&dum5)+(unit_16&dum5);			
+ // this returns the answer we want since the position of the greatest nonzero bit(say, kth from the right) implies ilog2 (as k-1);    
 }
+
 /* 
  * float_neg - Return bit-level equivalent of expression -f for
  *   floating point argument f.
@@ -368,7 +425,18 @@ int ilog2(int x) {
  *   Rating: 2
  */
 unsigned float_neg(unsigned uf) {
- return 2;
+ /*If x is NaN, return uf itself. Otherwise, change the sign bit and then return*/ 
+ unsigned sign_one = 0x80000000; 				//the sign part of floating point set to be 1  
+ int octa_one= 0xFF;
+ int exp_part_mask = octa_one<<23;				//0x78f00000 exactly for exp part of float point
+ int exp_part = uf & exp_part_mask;			
+ int frac_part_mask = ~(sign_one | exp_part_mask);		//=0x007fffff  where the number of 1 is 23 ; exactly for frac part of float point
+ int frac_part = uf & frac_part_mask;
+
+ if ((exp_part == exp_part_mask) && (frac_part || 0x00)){				// x == NaN (exp ==11111111 and frac != 0)
+  return uf;				
+ }
+ return uf+ sign_one;
 }
 /* 
  * float_i2f - Return bit-level equivalent of expression (float) x
@@ -380,7 +448,64 @@ unsigned float_neg(unsigned uf) {
  *   Rating: 4
  */
 unsigned float_i2f(int x) {
-  return 2;
+ /*The idea is that we first seperately get s(sign), exp, frac part
+  and then for frac part, we get guard, round, sticky bits to round it as given precision. (Note: frac part has 23bit)  
+ */
+ 
+ // for some initiation, refer to float_neg(x) function above.
+ int x_backup=x;
+ int sgn =0x80000000;	unsigned fin_sgn=0;
+ int sign_part = x & sgn;
+ int E =0;
+ unsigned bias = 0x7f;				//=127 for single precision
+ unsigned exp=0x7f800000;
+ unsigned  frac_mask =0x007fffff;   
+ unsigned frac=0;
+ int temp_val=0x00;	
+ int temp_po_1=0x00; 	int temp_po_2=0x00;		//those are temporary values/positions
+ int g=0; int r=0; int s=0;				// guard/round/sticky bit
+ 
+ 
+ if (x==sgn){				//exception handling : x==T_min
+  return 0xcf000000;			//so that exp_part = 10011110 = 158 = bias + 31;
+ }
+ if (x==0){				//exception handling : x==0; just return 0, itself.
+  return 0;
+ }
+ 
+ if (sign_part == sgn){
+  x= 1+~x;				//we'll unifiy to nonnegative case. Determine the sign as fin_sgn.
+  x_backup=x;
+  fin_sgn=sgn;
+ }
+ else{
+  fin_sgn=0;
+ }
+
+ while (x&0xfffffffe){				//try to calculate E by shifting until onl`y one digit left; 0xfffffffe==~0x01
+  x=x>>1;
+  E+=1;
+ }
+ x=x_backup;
+ exp=E+bias;					//Here's an exp value
+
+ temp_val = E+0xffffffe9;						//E-23 to check precision for frac part
+ 
+ if (E<23){								//where we don't need to round
+  frac = (x<<(~temp_val+1))&frac_mask;					//use 23-E=-(temp_val) to get frac part;
+ }
+ else{									//where the rounding needs; first, we don't round up
+  frac=(x>>temp_val)&frac_mask;						
+ 
+  temp_po_1 = 0x01<<temp_val;						//to get guard bit (that would be the least significant bit of the result)	
+  temp_po_2 = temp_po_1>>1;
+  g= x& temp_po_1;  r=x&(temp_po_2); s=x&(temp_po_2+0xffffffff); 
+  frac = frac + (r && (s||g));							//Rounding up (Note: s is all remaining bits under r)
+
+ // how this works: note that rounding up occurs when r bit is 1 and either (s bits are nonzero (round off)) or (s bits are 0 but g bit is 1 (round to even))  
+ } 
+
+ return fin_sgn+(exp<<23)+frac;
 }
 /* 
  * float_twice - Return bit-level equivalent of expression 2*f for
@@ -394,5 +519,26 @@ unsigned float_i2f(int x) {
  *   Rating: 4
  */
 unsigned float_twice(unsigned uf) {
-  return 2;
+ /*Note that 2 has s==0, E==1 and frac==0. Assume, for general case, uf is normalized.
+  If each part of uf is s0, E0, and frac0, the result should be s==0, E==E0+1,and frac==frac*0==0 (resp) 
+ */
+ unsigned T_min=0x80<<24;		//just the name is T_min. not signed!
+ unsigned exp_mask=0xff<<23;
+ unsigned frac_mask = ~(T_min+exp_mask);
+ unsigned exp_part=uf & exp_mask;
+ unsigned frac_part =uf &frac_mask;
+ unsigned sign_part=uf&T_min;
+
+ 
+ if (exp_part==(0xff<<23)){		// special values where exp==11111111 
+  return uf;
+ }
+ if (exp_part==0x00){			// denormalized values(exp==0); then we should operate for frac part(times 2)
+  frac_part = (frac_part <<1);		// overflow is okay since adding 1 to exp_part is natural computation
+ }					
+ else{					// normalized
+  exp_part +=(0x01<<23);		// this amounts to E0+1;
+  exp_part =exp_part&exp_mask;
+ }
+  return sign_part+exp_part+frac_part;
 }
